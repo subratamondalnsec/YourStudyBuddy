@@ -9,7 +9,6 @@ import { countwords, extractTextFromFile } from "../utils/functions.js";
 import fs from "fs";
 import path from "path";import { dirname} from "path";
 import { callGeminiTextGenAPI } from "../utils/gemini.js";
-import { count } from "console";
 import { fileURLToPath } from 'url';
 import puppeteer from 'puppeteer';
 

@@ -35,5 +35,17 @@ app.use("/api/v1/flashcard", flashcardRouter)
 app.use("/api/v1/quiz", quizRouter)
 
 
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error(err);
+    const statusCode = err.statusCode || 500;
+    return res.status(statusCode).json({
+        statusCode,
+        message: err.message || "Internal Server Error",
+        success: err.success !== undefined ? err.success : false,
+        errors: err.errors || [],
+        data: err.data || null
+    });
+});
 
 export { app }

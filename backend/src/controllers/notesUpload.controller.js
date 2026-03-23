@@ -4,7 +4,7 @@ import { ApiResponce } from "../utils/ApiResponce.js";
 import { uploadOnCloudinary, deleteFromCloudinary, extractPublicId } from "../utils/cloudinary.js";
 import { Note } from "../models/noteUpload.models.js";
 import { User } from "../models/user.models.js";
-import e from "express";
+
 // function extractPublicId(cloudinaryUrl) {
 //   try {
 //     const pathname = new URL(cloudinaryUrl).pathname; // e.g. /dwb1jtrym/image/upload/v1746897239/filename.pdf

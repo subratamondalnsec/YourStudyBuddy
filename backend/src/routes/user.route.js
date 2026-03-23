@@ -3,7 +3,7 @@ import {
   registerUser,
   logoutUser,
   loginUser,
-  refreshAuthToken,
+  // refreshAuthToken,
   getCurrentUser,
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
@@ -17,10 +17,10 @@ router.route("/register").post(registerUser);
 router.route("/login").post(loginUser);
 
 router.route("/logout").post(verifyToken, logoutUser);
-router.route("/refresh-token", refreshAuthToken);
+// router.route("/refresh-token", refreshAuthToken);
 
 
-router.route("/get-user").post(verifyToken, getCurrentUser);
+router.route("/get-user").get(verifyToken, getCurrentUser);
 
 
 export default router;
