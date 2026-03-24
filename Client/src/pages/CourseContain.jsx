@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import CourseSidebar from '../components/CourseSidebar';
-import LessonContent from '../components/LessonContent';
-import QuizSection from '../components/QuizSection';
-import LessonNavigation from '../components/LessonNavigation';
+import CourseSidebar from '../Components/CourseSidebar';
+import LessonContent from '../Components/LessonContent';
+import LessonNavigation from '../Components/LessonNavigation';
+import LessonQuizPanel from '../Components/LessonQuizPanel';
 import axios from 'axios';
 const url = "http://localhost:3000";
 
@@ -16,8 +16,7 @@ const CourseContain = () => {
   const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
-  const [quizResults, setQuizResults] = useState({});
-  const [quizResetVersion, setQuizResetVersion] = useState(0);
+  const [isQuizPassed, setIsQuizPassed] = useState(false);
 
   // Initialize progress and fetch course/progress data
   useEffect(() => {
@@ -48,11 +47,16 @@ const CourseContain = () => {
     // eslint-disable-next-line
   }, [courseId]);
 
-  // Reset quiz results when changing lessons
+  // Reset lesson quiz state when changing lessons
   useEffect(() => {
-    setQuizResults({});
-    setQuizResetVersion(0);
+    setIsQuizPassed(false);
   }, [currentLessonIndex]);
+
+  useEffect(() => {
+    if (courseId) {
+      localStorage.setItem('activeCourseId', courseId);
+    }
+  }, [courseId]);
 
   if (loading) {
     return <div className="text-center text-white">Loading course...</div>;
@@ -90,39 +94,17 @@ const CourseContain = () => {
     }
   };
 
-  // Mark lesson as completed (after quiz passed)
-  const handleQuizComplete = async (quizIndex, passed) => {
-    const quizKey = `${currentLessonIndex}-${quizIndex}`;
-    setQuizResults(prev => ({ ...prev, [quizKey]: passed }));
-    // If all quiz questions passed, mark lesson as complete
-    if (passed) {
-      // Check if all questions for this lesson are passed
-      const allPassed = currentLesson.quiz?.questions?.every((_, idx) => {
-        const key = `${currentLessonIndex}-${idx}`;
-        return quizResults[key] === true || (quizIndex === idx && passed);
-      });
-      if (allPassed && !completedLessons.includes(currentLesson._id)) {
-        await axios.post(`${url}/api/v1/progress/${courseId}/lesson/${currentLesson._id}/complete`, { xpGained: 10 }, { withCredentials: true });
-        // Refresh progress
-        const progressRes = await axios.post(`${url}/api/v1/progress/${courseId}`, {}, { withCredentials: true });
-        setProgress(progressRes.data.data);
-      }
+  const handleQuizStatusChange = async (passed) => {
+    setIsQuizPassed(passed);
+    if (passed && !completedLessons.includes(currentLesson._id)) {
+      await axios.post(
+        `${url}/api/v1/progress/${courseId}/lesson/${currentLesson._id}/complete`,
+        { xpGained: 10 },
+        { withCredentials: true }
+      );
+      const progressRes = await axios.post(`${url}/api/v1/progress/${courseId}`, {}, { withCredentials: true });
+      setProgress(progressRes.data.data);
     }
-  };
-
-  const handleTryAgain = () => {
-    const lessonQuestionCount = currentLesson.quiz?.questions?.length || 0;
-    if (lessonQuestionCount === 0) return;
-
-    setQuizResults((prev) => {
-      const updated = { ...prev };
-      for (let index = 0; index < lessonQuestionCount; index++) {
-        delete updated[`${currentLessonIndex}-${index}`];
-      }
-      return updated;
-    });
-
-    setQuizResetVersion((prev) => prev + 1);
   };
 
   // Complete course handler
@@ -131,24 +113,9 @@ const CourseContain = () => {
     navigate('/certificate');
   };
 
-  // Quiz passing logic
-  const isQuizPassed = (() => {
-    if (!currentLesson.quiz || !currentLesson.quiz.questions || currentLesson.quiz.questions.length === 0) {
-      return true;
-    }
-    return currentLesson.quiz.questions.every((_, index) => {
-      const quizKey = `${currentLessonIndex}-${index}`;
-      return quizResults[quizKey] === true;
-    });
-  })();
-
-  const hasWrongAnswer = (() => {
-    if (!currentLesson.quiz?.questions?.length) return false;
-    return currentLesson.quiz.questions.some((_, index) => {
-      const quizKey = `${currentLessonIndex}-${index}`;
-      return quizResults[quizKey] === false;
-    });
-  })();
+  const lessonHasQuiz = !!currentLesson.quiz;
+  const canProceed = lessonHasQuiz ? isQuizPassed : true;
+  const hasWrongAnswer = lessonHasQuiz && !isQuizPassed;
 
   const isFirstLesson = currentLessonIndex === 0;
   const isLastLesson = currentLessonIndex === totalLessons - 1;
@@ -192,33 +159,21 @@ const CourseContain = () => {
             {/* Content Sections */}
             <div className="space-y-8">
               <LessonContent lesson={currentLesson} />
-              {currentLesson.quiz?.questions?.map((question, index) => (
-                <QuizSection
-                  key={`${currentLessonIndex}-${index}-${quizResetVersion}`}
-                  quiz={question}
-                  onComplete={(passed) => handleQuizComplete(index, passed)}
+              {lessonHasQuiz && (
+                <LessonQuizPanel
+                  courseId={courseId}
+                  lessonId={currentLesson._id}
+                  onQuizStatusChange={handleQuizStatusChange}
                 />
-              ))}
-              {currentLesson.quiz?.questions?.length > 0 && hasWrongAnswer && (
-                <div className="bg-[#2a2a2a] rounded-xl p-6 border border-red-500/40">
-                  <p className="text-red-300 mb-4">
-                    One or more answers are incorrect. You cannot move to the next lesson until all answers are correct.
-                  </p>
-                  <button
-                    onClick={handleTryAgain}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-pink-600 to-purple-600 text-white hover:opacity-90 transition-opacity"
-                  >
-                    Try Again
-                  </button>
-                </div>
               )}
+
               <LessonNavigation 
                 onPrevious={handlePreviousLesson}
                 onNext={handleNextLesson}
                 onComplete={handleCourseComplete}
                 isFirstLesson={isFirstLesson}
                 isLastLesson={isLastLesson}
-                isQuizPassed={isQuizPassed}
+                isQuizPassed={canProceed}
                 hasWrongAnswer={hasWrongAnswer}
                 isCourseComplete={isCourseComplete}
                 progressPercentage={progressPercentage}

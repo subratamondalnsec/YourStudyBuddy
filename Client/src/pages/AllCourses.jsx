@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 const url = "http://localhost:3000";
@@ -47,7 +48,7 @@ const AllCourses = () => {
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {courses.map(course => (
-                  <a href={`/learn/${course._id}`} key={course._id}>
+                  <Link to={`/learn/${course._id}`} key={course._id}>
                     <div
                       className="bg-[#2a2a2a] p-6 rounded-lg border border-gray-700 hover:border-pink-500 transition-all cursor-pointer h-full"
                     >
@@ -55,7 +56,7 @@ const AllCourses = () => {
                       <p className="text-gray-400 text-sm mb-2">{course.description}</p>
                       <p className="text-gray-500 text-xs">Created by: {course.creator.name}</p>
                     </div>
-                  </a>
+                  </Link>
                 ))}
               </div>
             )}
