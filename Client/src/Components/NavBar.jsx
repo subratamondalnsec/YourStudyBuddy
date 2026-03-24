@@ -9,6 +9,7 @@ import {
   FaBrain,
   FaCalendarAlt,
   FaRobot,
+  FaCode,
   FaBars,
   FaTimes
 } from 'react-icons/fa';
@@ -52,6 +53,11 @@ const NavBar = ({ user = { name: "John Doe", avatar: null } }) => {
       to: "/schedule",
       icon: FaCalendarAlt,
       label: "Study Schedule"
+    },
+    {
+      to: "/visualizer",
+      icon: FaCode,
+      label: "Visualizer"
     },
     {
       to: "/chatbot",
