@@ -7,7 +7,13 @@ import {
   getAllUserProgress,
   resetCourseProgress,
   getUserStats,
-  canAccessLesson
+  canAccessLesson,
+  getOverallProgress,
+  getTopicWiseProgress,
+  getProgressHistory,
+  getAccuracy,
+  getWeakAreas,
+  getRecentActivity,
 } from '../controllers/progress.controller.js';
 import { verifyToken } from '../middlewares/auth.middleware.js';
 
@@ -27,6 +33,24 @@ router.post('/:courseId/lesson/:lessonId/current',verifyToken, updateCurrentLess
 
 // Get all progress for the user
 router.post('/',verifyToken, getAllUserProgress);
+
+// Overall performance
+router.get('/', verifyToken, getOverallProgress);
+
+// Accuracy stats
+router.get('/accuracy', verifyToken, getAccuracy);
+
+// Weak areas list
+router.get('/weak-areas', verifyToken, getWeakAreas);
+
+// Recent activity timeline
+router.get('/recent-activity', verifyToken, getRecentActivity);
+
+// Topic-wise performance
+router.get('/topic', verifyToken, getTopicWiseProgress);
+
+// Quiz/progress history
+router.get('/history', verifyToken, getProgressHistory);
 
 // Reset course progress
 router.post('/:courseId/reset',verifyToken, resetCourseProgress);
