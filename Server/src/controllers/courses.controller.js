@@ -140,7 +140,7 @@ const fetchallCourses = asyncHandler(async (req, res) => {
     throw new ApiError(404, "No courses found");
   }
 
-  res.status(200).json(new ApiResponce("Courses fetched successfully", courses));
+  res.status(200).json(new ApiResponce(200, courses, "Courses fetched successfully"));
 } );
 
 const fetchCourseById = asyncHandler(async (req, res) => {
@@ -157,7 +157,7 @@ const fetchCourseById = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Course not found");
     }
 
-    res.status(200).json(new ApiResponce("Course fetched successfully", course));
+    res.status(200).json(new ApiResponce(200, course, "Course fetched successfully"));
 });
 
 const fetchCourseStructure = asyncHandler(async (req, res) => {
@@ -174,12 +174,48 @@ const fetchCourseStructure = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Course not found");
     }
 
-    res.status(200).json(new ApiResponce("Course structure fetched successfully", {course:course, modules:modules}));
+    res.status(200).json(new ApiResponce(200, {course:course, modules:modules}, "Course structure fetched successfully"));
+});
+
+const fetchCourseTopics = asyncHandler(async (req, res) => {
+  const { courseId } = req.query;
+
+  if (!courseId || !mongoose.Types.ObjectId.isValid(courseId)) {
+    throw new ApiError(400, "Invalid course ID");
+  }
+
+  const course = await Course.findById(courseId)
+    .select("title topic")
+    .populate({
+      path: "lessons",
+      select: "title",
+    });
+
+  if (!course) {
+    throw new ApiError(404, "Course not found");
+  }
+
+  const topicsSet = new Set();
+
+  if (course.topic) topicsSet.add(course.topic.trim());
+  (course.lessons || []).forEach((lesson) => {
+    if (lesson?.title) topicsSet.add(lesson.title.trim());
+  });
+
+  const topics = Array.from(topicsSet).filter(Boolean);
+
+  return res.status(200).json({
+    success: true,
+    courseId,
+    courseName: course.title,
+    topics,
+  });
 });
 
 export {
     createCourse,
     fetchallCourses,
     fetchCourseById,
-    fetchCourseStructure
+    fetchCourseStructure,
+    fetchCourseTopics
 };

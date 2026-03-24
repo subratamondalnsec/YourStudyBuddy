@@ -11,6 +11,8 @@ const userSchema = new mongoose.Schema({
   username: { type: String, unique: true },
   walletAddress: { type: String, default: '' },
   totalXP: { type: Number, default: 0 },
+  weakTopics: [{ type: String }],
+  strongTopics: [{ type: String }],
   certificates: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Certificate' }],
   createdCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }],
 }, { timestamps: true });

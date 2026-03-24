@@ -14,6 +14,10 @@ import Quiz from "../models/quiz.model.js";
 import { log } from "console";
 import Progress from "../models/progress.model.js";
 import { User } from "../models/user.models.js";
+import mongoose from "mongoose";
+import QuizSession from "../models/quizSession.model.js";
+import Activity from "../models/activity.model.js";
+import QuizAttempt from "../models/quizAttempt.model.js";
 
 // Create or get user progress for a course
 export const initializeProgress = async (req, res) => {
@@ -51,6 +55,16 @@ export const initializeProgress = async (req, res) => {
       });
 
       await progress.save();
+
+      await Activity.create({
+        user: userId,
+        course: courseId,
+        lesson: course.lessons[0]._id,
+        courseName: course.title || "Course",
+        activityType: "COURSE_STARTED",
+        action: `Started course ${course.title || "Course"}`,
+        timestamp: new Date(),
+      });
       
       // Populate the created progress
       progress = await Progress.findById(progress._id)
@@ -182,6 +196,16 @@ export const completeLesson = async (req, res) => {
     }
 
     await progress.save();
+
+    await Activity.create({
+      user: userId,
+      course: courseId,
+      lesson: lessonId,
+      courseName: course.title || "Course",
+      activityType: "LESSON_COMPLETED",
+      action: `Completed lesson ${currentLessonIndex + 1}`,
+      timestamp: new Date(),
+    });
 
     // Update user's total XP if user model has totalXP field
     try {
@@ -456,6 +480,322 @@ export const canAccessLesson = async (req, res) => {
       success: false,
       message: 'Failed to check lesson access',
       error: error.message
+    });
+  }
+};
+
+export const getOverallProgress = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const progressList = await Progress.find({ user: userId }).populate("course", "title topic lessons");
+    const quizSessions = await QuizSession.find({ user: userId, status: "completed" });
+
+    const totalCourses = progressList.length;
+    const completedCourses = progressList.filter((item) => item.isCompleted).length;
+    const completedLessons = progressList.reduce((sum, item) => sum + (item.completedLessons?.length || 0), 0);
+
+    const totalLessons = progressList.reduce((sum, item) => {
+      const lessonCount = item.course?.lessons?.length || 0;
+      return sum + lessonCount;
+    }, 0);
+
+    const avgAccuracy = quizSessions.length
+      ? Math.round(
+          quizSessions.reduce((sum, session) => {
+            if (!session.totalQuestions) return sum;
+            return sum + (session.score / session.totalQuestions) * 100;
+          }, 0) / quizSessions.length
+        )
+      : 0;
+
+    const weakTopicMap = {};
+    for (const session of quizSessions) {
+      for (const weakTopic of session.weakTopics || []) {
+        weakTopicMap[weakTopic] = (weakTopicMap[weakTopic] || 0) + 1;
+      }
+    }
+
+    const weakAreas = Object.entries(weakTopicMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([topic, count]) => ({ topic, count }));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        accuracy: avgAccuracy,
+        coursesEnrolled: totalCourses,
+        completedCourses,
+        completedLessons,
+        totalLessons,
+        weakAreas,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch overall progress",
+    });
+  }
+};
+
+export const getTopicWiseProgress = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const progressList = await Progress.find({ user: userId }).populate("course", "title topic lessons");
+    const quizSessions = await QuizSession.find({ user: userId, status: "completed" });
+
+    const topicStats = {};
+
+    for (const progress of progressList) {
+      const topic = progress.course?.topic || "General";
+      if (!topicStats[topic]) {
+        topicStats[topic] = {
+          topic,
+          completedLessons: 0,
+          totalLessons: 0,
+          quizzesTaken: 0,
+          accuracy: 0,
+        };
+      }
+
+      topicStats[topic].completedLessons += progress.completedLessons?.length || 0;
+      topicStats[topic].totalLessons += progress.course?.lessons?.length || 0;
+    }
+
+    for (const session of quizSessions) {
+      const course = progressList.find((item) => item.course?._id?.toString() === session.course?.toString())?.course;
+      const topic = course?.topic || "General";
+      if (!topicStats[topic]) continue;
+      topicStats[topic].quizzesTaken += 1;
+      topicStats[topic].accuracy += session.totalQuestions ? (session.score / session.totalQuestions) * 100 : 0;
+    }
+
+    const result = Object.values(topicStats).map((topic) => ({
+      ...topic,
+      completion: topic.totalLessons ? Math.round((topic.completedLessons / topic.totalLessons) * 100) : 0,
+      accuracy: topic.quizzesTaken ? Math.round(topic.accuracy / topic.quizzesTaken) : 0,
+    }));
+
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch topic-wise progress",
+    });
+  }
+};
+
+export const getProgressHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const history = await QuizSession.find({ user: userId, status: "completed" })
+      .populate("lesson", "title")
+      .populate("course", "title topic")
+      .sort({ completedAt: -1 })
+      .limit(30);
+
+    const formatted = history.map((item) => ({
+      id: item._id,
+      lessonTitle: item.lesson?.title || "Lesson",
+      courseTitle: item.course?.title || "Course",
+      topic: item.course?.topic || "General",
+      score: item.score,
+      totalQuestions: item.totalQuestions,
+      accuracy: item.totalQuestions ? Math.round((item.score / item.totalQuestions) * 100) : 0,
+      weakTopics: item.weakTopics || [],
+      completedAt: item.completedAt,
+    }));
+
+    return res.status(200).json({ success: true, data: formatted });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch progress history",
+    });
+  }
+};
+
+export const getAccuracy = async (req, res) => {
+  try {
+    const userId = req.query.userId || req.user.id;
+
+    const attempts = await QuizAttempt.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: null,
+          totalAttempts: { $sum: 1 },
+          correct: {
+            $sum: { $cond: [{ $eq: ["$isCorrect", true] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    const aggregate = attempts[0] || { totalAttempts: 0, correct: 0 };
+    const wrong = Math.max(aggregate.totalAttempts - aggregate.correct, 0);
+    const accuracy = aggregate.totalAttempts
+      ? Math.round((aggregate.correct / aggregate.totalAttempts) * 100)
+      : 0;
+
+    return res.status(200).json({
+      success: true,
+      accuracy,
+      correct: aggregate.correct,
+      wrong,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to calculate accuracy",
+    });
+  }
+};
+
+export const getWeakAreas = async (req, res) => {
+  try {
+    const userId = req.query.userId || req.user.id;
+    const user = await User.findById(userId).select("weakTopics strongTopics");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const weakAreaDocs = await QuizAttempt.aggregate([
+      {
+        $match: {
+          user: new mongoose.Types.ObjectId(userId),
+        },
+      },
+      { $sort: { timestamp: -1 } },
+      { $limit: 200 },
+      {
+        $group: {
+          _id: "$topic",
+          wrongCount: {
+            $sum: { $cond: [{ $eq: ["$isCorrect", false] }, 1, 0] },
+          },
+          correctCount: {
+            $sum: { $cond: [{ $eq: ["$isCorrect", true] }, 1, 0] },
+          },
+        },
+      },
+      { $sort: { wrongCount: -1 } },
+    ]);
+
+    const statsByTopic = new Map();
+    weakAreaDocs.forEach((item) => {
+      const topic = item?._id;
+      if (!topic) return;
+      const wrongCount = Number(item?.wrongCount || 0);
+      const correctCount = Number(item?.correctCount || 0);
+      const total = wrongCount + correctCount;
+      const accuracy = total ? (correctCount / total) * 100 : 0;
+
+      statsByTopic.set(topic, {
+        topic,
+        wrongCount,
+        correctCount,
+        accuracy,
+      });
+    });
+
+    const persistedWeakTopics = Array.isArray(user.weakTopics) ? user.weakTopics : [];
+
+    const weakTopics = [];
+    const seen = new Set();
+
+    for (const topic of persistedWeakTopics) {
+      if (!topic || seen.has(topic)) continue;
+      const stat = statsByTopic.get(topic);
+      weakTopics.push({
+        topic,
+        wrongCount: stat?.wrongCount ?? 1,
+      });
+      seen.add(topic);
+    }
+
+    for (const [topic, stat] of statsByTopic.entries()) {
+      if (seen.has(topic)) continue;
+      if (stat.wrongCount <= 0) continue;
+      if (stat.accuracy >= 70) continue;
+
+      weakTopics.push({
+        topic,
+        wrongCount: stat.wrongCount,
+      });
+      seen.add(topic);
+    }
+
+    weakTopics.sort((a, b) => b.wrongCount - a.wrongCount);
+
+    const strongSet = new Set(Array.isArray(user.strongTopics) ? user.strongTopics : []);
+    const nextWeakTopics = weakTopics.map((item) => item.topic);
+    const filteredStrongTopics = Array.from(strongSet).filter((topic) => !nextWeakTopics.includes(topic));
+
+    if (
+      JSON.stringify(user.weakTopics || []) !== JSON.stringify(nextWeakTopics) ||
+      JSON.stringify(user.strongTopics || []) !== JSON.stringify(filteredStrongTopics)
+    ) {
+      user.weakTopics = nextWeakTopics;
+      user.strongTopics = filteredStrongTopics;
+      await user.save({ validateBeforeSave: false });
+    }
+
+    return res.status(200).json({
+      success: true,
+      weakTopics,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to get weak areas",
+    });
+  }
+};
+
+const toRelativeTime = (dateValue) => {
+  if (!dateValue) return "Recently";
+  const date = new Date(dateValue).getTime();
+  const now = Date.now();
+  const diffMinutes = Math.max(Math.floor((now - date) / (1000 * 60)), 0);
+
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hours ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} days ago`;
+};
+
+export const getRecentActivity = async (req, res) => {
+  try {
+    const userId = req.query.userId || req.user.id;
+
+    const activityDocs = await Activity.find({ user: userId })
+      .sort({ timestamp: -1 })
+      .limit(20)
+      .select("courseName action activityType timestamp");
+
+    const response = activityDocs.map((item) => ({
+      course: item.courseName || "Course",
+      action: item.action || item.activityType,
+      time: toRelativeTime(item.timestamp),
+    }));
+
+    return res.status(200).json({ success: true, data: response });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to get recent activity",
     });
   }
 };
