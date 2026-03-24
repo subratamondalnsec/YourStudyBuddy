@@ -8,6 +8,7 @@ const LessonNavigation = ({
   isFirstLesson,
   isLastLesson,
   isQuizPassed,
+  hasWrongAnswer,
   isLastModule,
   isCourseComplete,
   progressPercentage,
@@ -75,7 +76,9 @@ const LessonNavigation = ({
           animate={{ opacity: 1 }}
           className="text-center text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4"
         >
-          ⚠️ Complete the quiz to unlock the next lesson
+          {hasWrongAnswer
+            ? '❌ Some answers are incorrect. Use Try Again or go to the previous lesson.'
+            : '⚠️ Complete the quiz to unlock the next lesson'}
         </motion.div>
       )}
     </div>

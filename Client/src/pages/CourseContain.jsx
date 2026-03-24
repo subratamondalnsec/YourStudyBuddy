@@ -17,6 +17,7 @@ const CourseContain = () => {
   const [loading, setLoading] = useState(true);
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const [quizResults, setQuizResults] = useState({});
+  const [quizResetVersion, setQuizResetVersion] = useState(0);
 
   // Initialize progress and fetch course/progress data
   useEffect(() => {
@@ -50,6 +51,7 @@ const CourseContain = () => {
   // Reset quiz results when changing lessons
   useEffect(() => {
     setQuizResults({});
+    setQuizResetVersion(0);
   }, [currentLessonIndex]);
 
   if (loading) {
@@ -108,6 +110,21 @@ const CourseContain = () => {
     }
   };
 
+  const handleTryAgain = () => {
+    const lessonQuestionCount = currentLesson.quiz?.questions?.length || 0;
+    if (lessonQuestionCount === 0) return;
+
+    setQuizResults((prev) => {
+      const updated = { ...prev };
+      for (let index = 0; index < lessonQuestionCount; index++) {
+        delete updated[`${currentLessonIndex}-${index}`];
+      }
+      return updated;
+    });
+
+    setQuizResetVersion((prev) => prev + 1);
+  };
+
   // Complete course handler
   const handleCourseComplete = async () => {
     // Optionally, you can call a backend endpoint to finalize course completion or just navigate
@@ -122,6 +139,14 @@ const CourseContain = () => {
     return currentLesson.quiz.questions.every((_, index) => {
       const quizKey = `${currentLessonIndex}-${index}`;
       return quizResults[quizKey] === true;
+    });
+  })();
+
+  const hasWrongAnswer = (() => {
+    if (!currentLesson.quiz?.questions?.length) return false;
+    return currentLesson.quiz.questions.some((_, index) => {
+      const quizKey = `${currentLessonIndex}-${index}`;
+      return quizResults[quizKey] === false;
     });
   })();
 
@@ -169,11 +194,24 @@ const CourseContain = () => {
               <LessonContent lesson={currentLesson} />
               {currentLesson.quiz?.questions?.map((question, index) => (
                 <QuizSection
-                  key={`${currentLessonIndex}-${index}`}
+                  key={`${currentLessonIndex}-${index}-${quizResetVersion}`}
                   quiz={question}
                   onComplete={(passed) => handleQuizComplete(index, passed)}
                 />
               ))}
+              {currentLesson.quiz?.questions?.length > 0 && hasWrongAnswer && (
+                <div className="bg-[#2a2a2a] rounded-xl p-6 border border-red-500/40">
+                  <p className="text-red-300 mb-4">
+                    One or more answers are incorrect. You cannot move to the next lesson until all answers are correct.
+                  </p>
+                  <button
+                    onClick={handleTryAgain}
+                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-pink-600 to-purple-600 text-white hover:opacity-90 transition-opacity"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              )}
               <LessonNavigation 
                 onPrevious={handlePreviousLesson}
                 onNext={handleNextLesson}
@@ -181,6 +219,7 @@ const CourseContain = () => {
                 isFirstLesson={isFirstLesson}
                 isLastLesson={isLastLesson}
                 isQuizPassed={isQuizPassed}
+                hasWrongAnswer={hasWrongAnswer}
                 isCourseComplete={isCourseComplete}
                 progressPercentage={progressPercentage}
               />
