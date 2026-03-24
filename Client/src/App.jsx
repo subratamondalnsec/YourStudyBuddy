@@ -15,6 +15,7 @@ import Practice from './pages/Practice'
 import Schedule from './pages/Schedule'
 import WeakArea from './pages/WeakArea'
 import Chatbot from './pages/Chatbot'
+import CodeEditor from './CodeEditor/CodeEditor'
 import VisualizerApp from './visualizer/App'
 import MainLayout from './layouts/MainLayout'
 
@@ -39,6 +40,7 @@ function App() {
           <Route path="practice" element={<Practice />} />
           <Route path="schedule" element={<Schedule />} />
           <Route path="chatbot" element={<Chatbot />} />
+          <Route path="code-editor" element={<CodeEditor />} />
           <Route path="visualizer/*" element={<VisualizerApp />} />
           <Route path="certificate" element={<Certificate />} />
           <Route path="all-courses" element={<AllCertificate />} />

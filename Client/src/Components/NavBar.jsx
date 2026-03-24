@@ -65,6 +65,11 @@ const NavBar = ({ user = { name: "John Doe", avatar: null } }) => {
       label: "Study Chatbot"
     },
     {
+      to: "/code-editor",
+      icon: FaCode,
+      label: "Code Editor +"
+    },
+    {
       to: "/course",
       icon: MdOutlineOndemandVideo,
       label: "Courses"
