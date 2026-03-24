@@ -27,6 +27,7 @@ import quizRouter from "./routes/quiz.route.js"
 import practiceRouter from "./routes/practice.route.js"
 import scheduleRouter from "./routes/schedule.route.js"
 import topicRouter from "./routes/topic.route.js"
+import chatRouter from "./routes/chat.route.js"
 //router decleration
 
 app.use("/api/v1/users", userRouter)
@@ -37,6 +38,8 @@ app.use("/api/v1/quiz", quizRouter)
 app.use("/api/v1/practice", practiceRouter)
 app.use("/api/v1/schedule", scheduleRouter)
 app.use("/api/v1/topic", topicRouter)
+app.use("/api/v1/chat", chatRouter)
+app.use("/chat", chatRouter)
 
 
 

@@ -14,16 +14,18 @@ const HomePage = () => {
   const [topics, setTopics] = useState([]);
   const [history, setHistory] = useState([]);
   const [weakAreas, setWeakAreas] = useState([]);
+  const [recommendations, setRecommendations] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        const [accuracyRes, weakRes, historyRes, topicRes] = await Promise.all([
+        const [accuracyRes, weakRes, historyRes, topicRes, recommendationRes] = await Promise.all([
           axios.get(`${API_BASE}/api/v1/progress/accuracy`, { withCredentials: true }),
           axios.get(`${API_BASE}/api/v1/progress/weak-areas`, { withCredentials: true }),
           axios.get(`${API_BASE}/api/v1/progress/recent-activity`, { withCredentials: true }),
           axios.get(`${API_BASE}/api/v1/progress/topic`, { withCredentials: true }),
+          axios.get(`${API_BASE}/api/v1/progress/recommendations`, { withCredentials: true }),
         ]);
 
         setOverall({
@@ -34,11 +36,13 @@ const HomePage = () => {
         setWeakAreas(weakRes?.data?.weakTopics || []);
         setTopics(topicRes?.data?.data || []);
         setHistory(historyRes?.data?.data || []);
+        setRecommendations(recommendationRes?.data?.data || null);
       } catch (error) {
         setOverall(null);
         setTopics([]);
         setHistory([]);
         setWeakAreas([]);
+        setRecommendations(null);
       } finally {
         setLoading(false);
       }
@@ -121,6 +125,33 @@ const HomePage = () => {
                         ))
                       )}
                     </div>
+                  </div>
+
+                  <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 p-6 mb-8">
+                    <h3 className="text-xl font-semibold text-pink-400 mb-2">Personalized Recommendations</h3>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Suggested study pattern based on your activity. Best time: <span className="capitalize text-purple-300">{recommendations?.preferredStudyTime || 'evening'}</span>
+                    </p>
+
+                    {!(recommendations?.recommendedContent || []).length ? (
+                      <p className="text-gray-400">No recommendations available yet.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {recommendations.recommendedContent.map((item, index) => (
+                          <div key={`${item.title}-${index}`} className="bg-[#2a2a2a] border border-gray-700 rounded-lg p-4">
+                            <p className="text-white font-medium">{item.title}</p>
+                            <p className="text-sm text-gray-300 mt-1">{item.description}</p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {(item.topics || []).map((topic) => (
+                                <span key={`${item.title}-${topic}`} className="px-2 py-1 text-xs rounded-full bg-pink-500/10 border border-pink-500/30 text-pink-300">
+                                  {topic}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <Activities activities={activities} />

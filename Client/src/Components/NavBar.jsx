@@ -8,6 +8,7 @@ import {
   FaExclamationTriangle,
   FaBrain,
   FaCalendarAlt,
+  FaRobot,
   FaBars,
   FaTimes
 } from 'react-icons/fa';
@@ -51,6 +52,11 @@ const NavBar = ({ user = { name: "John Doe", avatar: null } }) => {
       to: "/schedule",
       icon: FaCalendarAlt,
       label: "Study Schedule"
+    },
+    {
+      to: "/chatbot",
+      icon: FaRobot,
+      label: "Study Chatbot"
     },
     {
       to: "/course",
