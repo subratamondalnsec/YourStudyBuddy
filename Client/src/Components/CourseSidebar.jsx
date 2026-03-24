@@ -38,6 +38,20 @@ const CourseSidebar = ({
 
           <div>
             <h3 className="text-lg font-semibold text-white mb-4">{course.title}</h3>
+            <div className="space-y-2">
+              <Link
+                to={`/practice?courseId=${course._id}`}
+                className="block text-sm text-blue-300 hover:text-blue-200"
+              >
+                🧠 AI Practice
+              </Link>
+              <Link
+                to={`/schedule?courseId=${course._id}`}
+                className="block text-sm text-purple-300 hover:text-purple-200"
+              >
+                📅 Study Schedule
+              </Link>
+            </div>
           </div>
         </div>
 

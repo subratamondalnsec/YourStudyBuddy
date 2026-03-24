@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
   FaHome, 
   FaCertificate, 
   FaUser, 
   FaCog,
+  FaExclamationTriangle,
+  FaBrain,
+  FaCalendarAlt,
   FaBars,
   FaTimes
 } from 'react-icons/fa';
@@ -13,11 +16,41 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const NavBar = ({ user = { name: "John Doe", avatar: null } }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname, location.search, location.hash]);
+
+  const handleSidebarNavigate = (event, path) => {
+    event.preventDefault();
+    navigate(path);
+    setTimeout(() => {
+      window.location.reload();
+    }, 0);
+  };
+
   const navItems = [
     {
       to: "/home",
       icon: FaHome,
       label: "Home"
+    },
+    {
+      to: "/weak-area",
+      icon: FaExclamationTriangle,
+      label: "Weak Areas"
+    },
+    {
+      to: "/practice",
+      icon: FaBrain,
+      label: "AI Practice"
+    },
+    {
+      to: "/schedule",
+      icon: FaCalendarAlt,
+      label: "Study Schedule"
     },
     {
       to: "/course",
@@ -108,6 +141,7 @@ const NavBar = ({ user = { name: "John Doe", avatar: null } }) => {
               >
                 <NavLink
                   to={item.to}
+                  onClick={(event) => handleSidebarNavigate(event, item.to)}
                   className={({ isActive }) =>
                     `flex items-center gap-4 px-4 py-3 rounded-lg transition-all duration-300 group ${
                       isActive
@@ -207,7 +241,10 @@ const NavBar = ({ user = { name: "John Doe", avatar: null } }) => {
                     <li key={item.to}>
                       <NavLink
                         to={item.to}
-                        onClick={() => setIsMobileMenuOpen(false)}
+                        onClick={(event) => {
+                          setIsMobileMenuOpen(false);
+                          handleSidebarNavigate(event, item.to);
+                        }}
                         className={({ isActive }) =>
                           `flex items-center gap-4 px-4 py-3 rounded-lg transition-all duration-300 group ${
                             isActive
