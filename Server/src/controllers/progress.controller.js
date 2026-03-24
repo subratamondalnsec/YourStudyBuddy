@@ -799,3 +799,125 @@ export const getRecentActivity = async (req, res) => {
     });
   }
 };
+
+export const getPersonalizedRecommendations = async (req, res) => {
+  try {
+    const userId = req.query.userId || req.user.id;
+
+    const [weakAreaDocs, topicStats, activityDocs] = await Promise.all([
+      QuizAttempt.aggregate([
+        {
+          $match: {
+            user: new mongoose.Types.ObjectId(userId),
+            isCorrect: false,
+          },
+        },
+        {
+          $group: {
+            _id: "$topic",
+            wrongCount: { $sum: 1 },
+          },
+        },
+        { $sort: { wrongCount: -1 } },
+        { $limit: 5 },
+      ]),
+      Progress.find({ user: userId }).populate("course", "topic title lessons").lean(),
+      Activity.find({ user: userId }).sort({ timestamp: -1 }).limit(30).lean(),
+    ]);
+
+    const weakTopics = weakAreaDocs.map((item) => item?._id).filter(Boolean);
+
+    const topicPerformance = topicStats
+      .map((item) => {
+        const topic = item?.course?.topic || "General";
+        const totalLessons = item?.course?.lessons?.length || 0;
+        const completedLessons = item?.completedLessons?.length || 0;
+        const completion = totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
+        return {
+          topic,
+          completion,
+          totalLessons,
+          completedLessons,
+        };
+      })
+      .filter((item) => item.topic);
+
+    const lowProgressTopics = topicPerformance
+      .filter((item) => item.completion < 50)
+      .sort((a, b) => a.completion - b.completion)
+      .slice(0, 3)
+      .map((item) => item.topic);
+
+    const strongProgressTopics = topicPerformance
+      .filter((item) => item.completion >= 70)
+      .sort((a, b) => b.completion - a.completion)
+      .slice(0, 3)
+      .map((item) => item.topic);
+
+    const timeBuckets = { morning: 0, afternoon: 0, evening: 0, night: 0 };
+    activityDocs.forEach((item) => {
+      const hour = new Date(item.timestamp).getHours();
+      if (hour >= 5 && hour < 12) timeBuckets.morning += 1;
+      else if (hour >= 12 && hour < 17) timeBuckets.afternoon += 1;
+      else if (hour >= 17 && hour < 22) timeBuckets.evening += 1;
+      else timeBuckets.night += 1;
+    });
+
+    const preferredStudyTime = Object.entries(timeBuckets).sort((a, b) => b[1] - a[1])[0]?.[0] || "evening";
+
+    const recommendedContent = [];
+
+    if (weakTopics.length) {
+      recommendedContent.push({
+        title: "Weak Topic Reinforcement",
+        description: "Practice small mixed quizzes focused on frequently missed concepts.",
+        topics: weakTopics,
+        type: "reinforcement",
+      });
+    }
+
+    if (lowProgressTopics.length) {
+      recommendedContent.push({
+        title: "Concept Foundation Review",
+        description: "Revisit lesson summaries before starting new advanced content.",
+        topics: lowProgressTopics,
+        type: "foundation",
+      });
+    }
+
+    if (strongProgressTopics.length) {
+      recommendedContent.push({
+        title: "Challenge Set",
+        description: "Attempt higher-difficulty questions for topics where progress is strong.",
+        topics: strongProgressTopics,
+        type: "challenge",
+      });
+    }
+
+    if (!recommendedContent.length) {
+      recommendedContent.push({
+        title: "Starter Study Pattern",
+        description: "Begin with 15-minute concept review, then solve 3 MCQs, then 1 recap note.",
+        topics: ["General Revision"],
+        type: "starter",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        preferredStudyTime,
+        weakTopics,
+        lowProgressTopics,
+        strongProgressTopics,
+        recommendedContent,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to get personalized recommendations",
+    });
+  }
+};

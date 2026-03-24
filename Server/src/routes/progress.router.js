@@ -14,6 +14,7 @@ import {
   getAccuracy,
   getWeakAreas,
   getRecentActivity,
+  getPersonalizedRecommendations,
 } from '../controllers/progress.controller.js';
 import { verifyToken } from '../middlewares/auth.middleware.js';
 
@@ -45,6 +46,9 @@ router.get('/weak-areas', verifyToken, getWeakAreas);
 
 // Recent activity timeline
 router.get('/recent-activity', verifyToken, getRecentActivity);
+
+// Personalized recommendation patterns
+router.get('/recommendations', verifyToken, getPersonalizedRecommendations);
 
 // Topic-wise performance
 router.get('/topic', verifyToken, getTopicWiseProgress);
